@@ -31,8 +31,28 @@ def slice_frames(image: Image.Image, num_frames: int) -> list:
 
 
 def remove_background(image: Image.Image) -> Image.Image:
-    raise NotImplementedError
+    try:
+        return rembg.remove(image)
+    except Exception as e:
+        raise ProcessingError(f"rembg falló: {e}")
 
 
 def assemble_spritesheet(frames: list, output_path: str) -> str:
-    raise NotImplementedError
+    if not frames:
+        raise ValueError("No hay frames para ensamblar")
+
+    min_w = min(f.width for f in frames)
+    min_h = min(f.height for f in frames)
+    normalized = [f.resize((min_w, min_h), Image.LANCZOS) for f in frames]
+
+    total_w = min_w * len(normalized)
+    sheet_w = 2 ** math.ceil(math.log2(total_w))
+    sheet_h = 2 ** math.ceil(math.log2(min_h))
+
+    sheet = Image.new("RGBA", (sheet_w, sheet_h), (0, 0, 0, 0))
+    for i, frame in enumerate(normalized):
+        sheet.paste(frame, (i * min_w, 0), frame)
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(output_path, "PNG")
+    return output_path
