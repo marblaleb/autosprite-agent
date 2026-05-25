@@ -1,0 +1,16 @@
+{
+  "api_url": "http://127.0.0.1:7860",
+  "default_model": "pixel-art-v1.safetensors",
+  "generation_defaults": {
+    "steps": 25,
+    "cfg_scale": 7.5,
+    "width": 512,
+    "height": 512,
+    "denoising_strength": 0.75
+  },
+  "processing": {
+    "remove_background_method": "rembg",
+    "export_format": "png",
+    "output_dir": "./output"
+  }
+}
