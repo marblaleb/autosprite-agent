@@ -115,11 +115,18 @@ class ComfyUIClient:
                 f"Error en /prompt {e.response.status_code}: {e.response.text}"
             )
 
-    def _poll_until_done(self, prompt_id: str) -> tuple:
+    def _poll_until_done(self, prompt_id: str) -> tuple[str, str]:
         deadline = time.time() + self.poll_timeout
         while time.time() < deadline:
-            resp = requests.get(f"{self.api_url}/history/{prompt_id}")
-            resp.raise_for_status()
+            try:
+                resp = requests.get(f"{self.api_url}/history/{prompt_id}")
+                resp.raise_for_status()
+            except requests.exceptions.ConnectionError:
+                raise ConnectionError(f"ComfyUI no está corriendo en {self.api_url}")
+            except requests.exceptions.HTTPError as e:
+                raise RuntimeError(
+                    f"Error en /history {e.response.status_code}: {e.response.text}"
+                )
             data = resp.json()
             if prompt_id in data:
                 history = data[prompt_id]
@@ -128,6 +135,7 @@ class ComfyUIClient:
                 for node_output in history.get("outputs", {}).values():
                     for img in node_output.get("images", []):
                         return img["filename"], img.get("subfolder", "")
+                raise RuntimeError("ComfyUI reported completion but returned no images")
             time.sleep(self.poll_interval)
         raise TimeoutError(
             f"Tiempo de espera agotado ({self.poll_timeout}s) "

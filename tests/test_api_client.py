@@ -181,3 +181,24 @@ def test_missing_node_title_raises_value_error():
     with patch.object(client, "_load_workflow", return_value=broken):
         with pytest.raises(ValueError, match="AutoSprite_KSampler"):
             client.generate_txt2img("knight", "bad", 25, 7.5, 512, 512)
+
+
+def test_poll_completion_without_images_raises_runtime_error():
+    client = make_client()
+
+    def get_side(url, **kw):
+        if "/history/" in url:
+            m = MagicMock()
+            m.raise_for_status = MagicMock()
+            m.json.return_value = {
+                PROMPT_ID: {"outputs": {"7": {"images": []}}}
+            }
+            return m
+        return make_view_mock()
+
+    with patch.object(client, "_load_workflow", return_value=make_minimal_txt2img_workflow()), \
+         patch("requests.post", return_value=make_prompt_mock()), \
+         patch("requests.get", side_effect=get_side), \
+         patch("time.sleep"):
+        with pytest.raises(RuntimeError, match="no images"):
+            client.generate_txt2img("knight", "bad", 25, 7.5, 512, 512)
