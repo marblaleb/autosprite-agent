@@ -91,7 +91,7 @@ def test_run_passes_correct_num_frames_to_slice():
 def test_run_connection_error_propagates():
     orch = Orchestrator(CONFIG)
     orch.client = MagicMock()
-    orch.client.generate_txt2img.side_effect = ConnectionError("A1111 no está corriendo")
+    orch.client.generate_txt2img.side_effect = ConnectionError("ComfyUI no está corriendo en http://127.0.0.1:8188")
 
-    with pytest.raises(ConnectionError, match="A1111 no está corriendo"):
+    with pytest.raises(ConnectionError, match="ComfyUI no está corriendo"):
         orch.run("walk", "knight", 4)
