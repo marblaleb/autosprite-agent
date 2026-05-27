@@ -70,8 +70,8 @@ class ComfyUIClient:
         denoising_strength: float,
         steps: int,
         cfg_scale: float,
-        width: int,
-        height: int,
+        width: int,  # unused — output dimensions come from the uploaded reference image
+        height: int,  # unused — output dimensions come from the uploaded reference image
     ) -> str:
         filename = self._upload_image(init_image_b64)
         workflow = copy.deepcopy(self._load_workflow("img2img.json"))
@@ -160,10 +160,13 @@ class ComfyUIClient:
                 history = data[prompt_id]
                 if "error" in history:
                     raise RuntimeError(f"ComfyUI error: {history['error']}")
-                for node_output in history.get("outputs", {}).values():
+                outputs = history.get("outputs", {})
+                for node_output in outputs.values():
                     for img in node_output.get("images", []):
                         return img["filename"], img.get("subfolder", "")
-                raise RuntimeError("ComfyUI reported completion but returned no images")
+                if outputs:
+                    # nodes ran but produced no images
+                    raise RuntimeError("ComfyUI reported completion but returned no images")
             time.sleep(self.poll_interval)
         raise TimeoutError(
             f"Tiempo de espera agotado ({self.poll_timeout}s) "
