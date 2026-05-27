@@ -111,7 +111,10 @@ class ComfyUIClient:
                 files={"image": ("reference.png", image_bytes, "image/png")},
             )
             resp.raise_for_status()
-            return resp.json()["name"]
+            data = resp.json()
+            if "name" not in data:
+                raise RuntimeError(f"Respuesta inesperada de /upload/image: {data!r}")
+            return data["name"]
         except requests.exceptions.ConnectionError:
             raise ConnectionError(f"ComfyUI no está corriendo en {self.api_url}")
         except requests.exceptions.HTTPError as e:
