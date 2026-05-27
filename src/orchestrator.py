@@ -2,7 +2,7 @@ import base64
 from datetime import datetime
 from pathlib import Path
 
-from src.api_client import A1111Client
+from src.api_client import ComfyUIClient
 from src.processor import decode_image, remove_background, slice_frames, assemble_spritesheet
 from src.templates import build_prompt, NEGATIVE_PROMPT
 
@@ -10,7 +10,13 @@ from src.templates import build_prompt, NEGATIVE_PROMPT
 class Orchestrator:
     def __init__(self, config: dict):
         self.config = config
-        self.client = A1111Client(api_url=config["api_url"], timeout=120)
+        comfy = config.get("comfy", {})
+        self.client = ComfyUIClient(
+            api_url=config["api_url"],
+            checkpoint=comfy.get("checkpoint", "v1-5-pruned-emaonly.safetensors"),
+            poll_interval=comfy.get("poll_interval", 2),
+            poll_timeout=comfy.get("poll_timeout", 120),
+        )
 
     def run(
         self,

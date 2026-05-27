@@ -3,7 +3,12 @@ from unittest.mock import MagicMock, patch
 from src.orchestrator import Orchestrator
 
 CONFIG = {
-    "api_url": "http://127.0.0.1:7860",
+    "api_url": "http://127.0.0.1:8188",
+    "comfy": {
+        "checkpoint": "test-model.safetensors",
+        "poll_interval": 0,
+        "poll_timeout": 120,
+    },
     "generation_defaults": {
         "steps": 25,
         "cfg_scale": 7.5,
