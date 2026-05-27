@@ -73,7 +73,19 @@ class ComfyUIClient:
         width: int,
         height: int,
     ) -> str:
-        raise NotImplementedError
+        filename = self._upload_image(init_image_b64)
+        workflow = copy.deepcopy(self._load_workflow("img2img.json"))
+        params = {
+            "checkpoint": self.checkpoint,
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "steps": steps,
+            "cfg_scale": cfg_scale,
+            "denoising_strength": denoising_strength,
+            "init_image_filename": filename,
+        }
+        self._inject(workflow, _IMG2IMG_INJECTIONS, params)
+        return self._submit_and_wait(workflow)
 
     def _load_workflow(self, filename: str) -> dict:
         with open(WORKFLOW_DIR / filename) as f:
@@ -92,7 +104,20 @@ class ComfyUIClient:
             raise ValueError(f"Workflow missing required nodes: {sorted(missing)}")
 
     def _upload_image(self, image_b64: str) -> str:
-        raise NotImplementedError
+        image_bytes = base64.b64decode(image_b64)
+        try:
+            resp = requests.post(
+                f"{self.api_url}/upload/image",
+                files={"image": ("reference.png", image_bytes, "image/png")},
+            )
+            resp.raise_for_status()
+            return resp.json()["name"]
+        except requests.exceptions.ConnectionError:
+            raise ConnectionError(f"ComfyUI no está corriendo en {self.api_url}")
+        except requests.exceptions.HTTPError as e:
+            raise RuntimeError(
+                f"Error subiendo imagen {e.response.status_code}: {e.response.text}"
+            )
 
     def _submit_and_wait(self, workflow: dict) -> str:
         client_id = str(uuid.uuid4())
@@ -143,9 +168,16 @@ class ComfyUIClient:
         )
 
     def _download_as_b64(self, filename: str, subfolder: str) -> str:
-        resp = requests.get(
-            f"{self.api_url}/view",
-            params={"filename": filename, "subfolder": subfolder, "type": "output"},
-        )
-        resp.raise_for_status()
-        return base64.b64encode(resp.content).decode("utf-8")
+        try:
+            resp = requests.get(
+                f"{self.api_url}/view",
+                params={"filename": filename, "subfolder": subfolder, "type": "output"},
+            )
+            resp.raise_for_status()
+            return base64.b64encode(resp.content).decode("utf-8")
+        except requests.exceptions.ConnectionError:
+            raise ConnectionError(f"ComfyUI no está corriendo en {self.api_url}")
+        except requests.exceptions.HTTPError as e:
+            raise RuntimeError(
+                f"Error descargando imagen {e.response.status_code}: {e.response.text}"
+            )

@@ -202,3 +202,61 @@ def test_poll_completion_without_images_raises_runtime_error():
          patch("time.sleep"):
         with pytest.raises(RuntimeError, match="no images"):
             client.generate_txt2img("knight", "bad", 25, 7.5, 512, 512)
+
+
+def make_minimal_img2img_workflow():
+    return {
+        "1": {"class_type": "CheckpointLoaderSimple", "_meta": {"title": "AutoSprite_CheckpointLoader"}, "inputs": {"ckpt_name": ""}},
+        "2": {"class_type": "CLIPTextEncode", "_meta": {"title": "AutoSprite_PositivePrompt"}, "inputs": {"text": "", "clip": ["1", 1]}},
+        "3": {"class_type": "CLIPTextEncode", "_meta": {"title": "AutoSprite_NegativePrompt"}, "inputs": {"text": "", "clip": ["1", 1]}},
+        "4": {"class_type": "LoadImage", "_meta": {"title": "AutoSprite_LoadImage"}, "inputs": {"image": ""}},
+        "5": {"class_type": "KSampler", "_meta": {"title": "AutoSprite_KSampler"}, "inputs": {"steps": 20, "cfg": 7.0, "denoise": 0.75, "seed": 42, "sampler_name": "euler", "scheduler": "normal", "model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0]}},
+        "6": {"class_type": "VAEDecode", "_meta": {"title": "AutoSprite_VAEDecode"}, "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
+        "7": {"class_type": "SaveImage", "_meta": {"title": "AutoSprite_SaveImage"}, "inputs": {"filename_prefix": "AutoSprite", "images": ["6", 0]}},
+    }
+
+
+def test_img2img_uploads_image_before_prompt():
+    client = make_client()
+    call_order = []
+    init_b64 = base64.b64encode(b"fake_png_bytes").decode()
+
+    def post_side(url, **kw):
+        call_order.append(url)
+        if "/upload/image" in url:
+            m = MagicMock()
+            m.raise_for_status = MagicMock()
+            m.json.return_value = {"name": "ref.png"}
+            return m
+        return make_prompt_mock()
+
+    with patch.object(client, "_load_workflow", return_value=make_minimal_img2img_workflow()), \
+         patch("requests.post", side_effect=post_side), \
+         patch("requests.get", side_effect=standard_get_side), \
+         patch("time.sleep"):
+        client.generate_img2img("knight", "bad", init_b64, 0.75, 25, 7.5, 512, 512)
+
+    assert len(call_order) == 2
+    assert "/upload/image" in call_order[0]
+    assert "/prompt" in call_order[1]
+
+
+def test_img2img_returns_base64():
+    client = make_client()
+    init_b64 = base64.b64encode(b"fake_png_bytes").decode()
+
+    def post_side(url, **kw):
+        if "/upload/image" in url:
+            m = MagicMock()
+            m.raise_for_status = MagicMock()
+            m.json.return_value = {"name": "ref.png"}
+            return m
+        return make_prompt_mock()
+
+    with patch.object(client, "_load_workflow", return_value=make_minimal_img2img_workflow()), \
+         patch("requests.post", side_effect=post_side), \
+         patch("requests.get", side_effect=standard_get_side), \
+         patch("time.sleep"):
+        result = client.generate_img2img("knight", "bad", init_b64, 0.75, 25, 7.5, 512, 512)
+
+    assert result == base64.b64encode(make_png_bytes()).decode("utf-8")
