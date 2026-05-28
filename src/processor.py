@@ -1,6 +1,5 @@
 import base64
 import io
-import math
 from datetime import datetime
 from pathlib import Path
 
@@ -32,7 +31,11 @@ def slice_frames(image: Image.Image, num_frames: int) -> list:
 
 def remove_background(image: Image.Image) -> Image.Image:
     try:
-        return rembg.remove(image)
+        pad = max(image.width, image.height) // 8
+        canvas = Image.new("RGBA", (image.width + 2 * pad, image.height + 2 * pad), (0, 0, 0, 0))
+        canvas.paste(image, (pad, pad))
+        result = rembg.remove(canvas)
+        return result.crop((pad, pad, pad + image.width, pad + image.height))
     except Exception as e:
         raise ProcessingError(f"rembg falló: {e}")
 
@@ -45,9 +48,8 @@ def assemble_spritesheet(frames: list, output_path: str) -> str:
     min_h = min(f.height for f in frames)
     normalized = [f.resize((min_w, min_h), Image.LANCZOS) for f in frames]
 
-    total_w = min_w * len(normalized)
-    sheet_w = 2 ** math.ceil(math.log2(total_w))
-    sheet_h = 2 ** math.ceil(math.log2(min_h))
+    sheet_w = min_w * len(normalized)
+    sheet_h = min_h
 
     sheet = Image.new("RGBA", (sheet_w, sheet_h), (0, 0, 0, 0))
     for i, frame in enumerate(normalized):

@@ -97,9 +97,12 @@ class AutoSpriteApp:
         ).start()
 
     def _run_generation(self, character, anim_type, num_frames, reference_path):
+        def on_progress(current, total):
+            self.root.after(0, self._set_status, f"Generando frame {current}/{total}…", "gray")
+
         try:
             output_path = self.orchestrator.run(
-                anim_type, character, num_frames, reference_path
+                anim_type, character, num_frames, reference_path, progress_callback=on_progress
             )
             self.root.after(0, self._on_success, output_path)
         except Exception as e:

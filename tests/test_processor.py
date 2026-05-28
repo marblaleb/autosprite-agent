@@ -55,10 +55,11 @@ def test_slice_frames_zero_width_raises():
 
 
 def test_remove_background_returns_rgba():
-    img = make_pil_image()
-    with patch("rembg.remove", return_value=img):
+    img = make_pil_image(512, 512)
+    with patch("rembg.remove", side_effect=lambda x: x):
         result = remove_background(img)
     assert result.mode == "RGBA"
+    assert result.size == (512, 512)
 
 
 def test_remove_background_failure_raises_processing_error():
